@@ -1,0 +1,31 @@
+# SearXNG 配置（挂载到容器内 /etc/searxng/settings.yml）
+# 文档: https://docs.searxng.org/admin/settings/
+#
+# 说明：本文件基于官方默认设置（use_default_settings: true），
+# 只覆盖必要项；所有 ${SEARXNG_*} 环境变量会覆盖对应配置（见 ../.env）。
+
+use_default_settings: true
+
+general:
+  instance_name: "SearXNG"
+
+search:
+  # 关键：MCP / 第三方客户端依赖 JSON API，必须启用 json 格式
+  # （只开放 html 时，format=json 会返回 403）
+  formats:
+    - html
+    - json
+
+server:
+  # 实际生效值来自环境变量 ${SEARXNG_SECRET}（./.env），此处为占位符
+  secret_key: "ultrasecretkey"
+  # 通过 SearXNG 代理图片，避免浏览器直连图片源（推荐开启）
+  image_proxy: true
+  # 私用实例：关闭限流与公开实例特性
+  limiter: false
+  public_instance: false
+
+# Valkey 地址由环境变量 ${SEARXNG_VALKEY_URL} 提供，例如：
+#   valkey://valkey:6379/0
+#valkey:
+#  url: valkey://valkey:6379/0

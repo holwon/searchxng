@@ -1,0 +1,65 @@
+# SearXNG + MCP 一体化部署（Docker Compose）
+#
+# 服务组成：
+#   core    : SearXNG 元搜索引擎（开启 JSON API，供 MCP 调用；不暴露主机端口）
+#   valkey  : 限流 / 防滥用缓存（searxng 官方推荐组件，无主机端口）
+#   mcp     : mcp-searxng，把 SearXNG 搜索暴露为 MCP 工具
+#             （HTTP 传输，端点 http://127.0.0.1:${MCP_PORT:-8000}/mcp）
+#
+# 对外只开放 127.0.0.1:8000（MCP）；SearXNG 网页界面默认不可访问。
+#
+# 官方文档：
+#   https://docs.searxng.org/admin/installation-docker.html
+#   https://github.com/ihor-sokoliuk/mcp-searxng
+
+name: searxng-mcp
+
+services:
+  core:
+    container_name: searxng-core
+    image: docker.io/searxng/searxng:${SEARXNG_VERSION:-latest}
+    restart: always
+    env_file: ./.env
+    # 不映射主机端口：网页界面对外不可访问，仅通过 Docker 内网供 mcp 服务调用。
+    # 需要临时用浏览器调试网页界面时，取消注释下面两行：
+    #ports:
+    #  - "${SEARXNG_HOST:-127.0.0.1}:${SEARXNG_PORT:-8080}:${SEARXNG_PORT:-8080}"
+    volumes:
+      - ./core-config/:/etc/searxng/:Z
+      - core-data:/var/cache/searxng/
+
+  valkey:
+    container_name: searxng-valkey
+    image: docker.io/valkey/valkey:9-alpine
+    command: valkey-server --save 30 1 --loglevel warning
+    restart: always
+    volumes:
+      - valkey-data:/data/
+
+  mcp:
+    container_name: searxng-mcp
+    image: isokoliuk/mcp-searxng:latest
+    restart: always
+    environment:
+      # 指向同一 Compose 网络内的 SearXNG（注意：不是宿主机的 127.0.0.1）
+      # 端口通过 ${SEARXNG_PORT} 与 core 服务保持一致
+      SEARXNG_URL: http://core:${SEARXNG_PORT:-8080}
+      # 开启 HTTP 传输，容器内监听 8080，宿主机映射到 ${MCP_PORT:-8000}
+      MCP_HTTP_HOST: 0.0.0.0
+      MCP_HTTP_PORT: "8080"
+      # 无状态模式：容器重启后不会残留无效会话，客户端更省心
+      MCP_HTTP_STATELESS: "true"
+      # 可选（取消注释即可）：限制返回结果数 / 结果长度，节省模型上下文
+      #SEARXNG_MAX_RESULTS: "10"
+      #SEARXNG_MAX_RESULT_CHARS: "500"
+      #SEARXNG_DEFAULT_LANGUAGE: "zh-CN"
+      #SEARXNG_DEFAULT_RESPONSE_FORMAT: "text"
+    ports:
+      # 只绑定本机回环，避免把无鉴权的 MCP 端点暴露到局域网
+      - "127.0.0.1:${MCP_PORT:-8000}:8080"
+    depends_on:
+      - core
+
+volumes:
+  core-data:
+  valkey-data:
