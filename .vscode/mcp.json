@@ -1,10 +1,15 @@
 {
-  // VS Code MCP 配置：连接到 Docker 中运行的 searxng-mcp（HTTP 传输）
-  // 启动方式：在 searxng-mcp/ 目录执行 docker compose up -d
+  // VS Code MCP 配置：通过 npx 启动 mcp-searxng（stdio 模式）
+  // 前置条件：Docker 中的 SearXNG 已启动
+  //   cd searxng-mcp && docker compose up -d
   "servers": {
-    "searxng": {
-      "type": "http",
-      "url": "http://127.0.0.1:8000/mcp"
+    "searxng-search": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-searxng"],
+      "env": {
+        "SEARXNG_URL": "http://127.0.0.1:8000"
+      }
     }
   }
 }
